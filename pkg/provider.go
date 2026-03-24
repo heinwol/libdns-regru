@@ -6,8 +6,10 @@ package libdns_regru
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/libdns/libdns"
+	"github.com/mixanemca/regru-go"
 )
 
 // TODO: Providers must not require additional provisioning steps by the callers; it
@@ -19,15 +21,41 @@ import (
 // Provider facilitates DNS record manipulation with <TODO: PROVIDER NAME>.
 type Provider struct {
 	// TODO: Put config fields here (with snake_case json struct tags on exported fields), for example:
-	APIToken string `json:"api_token,omitempty"`
+	Username string `json:"username"`
+	Password string `json:"password"`
 
+	client *regru.Client
+	once   sync.Once
 	// Exported config fields should be JSON-serializable or omitted (`json:"-"`)
+}
+
+func (p *Provider) initClient() {
+	p.once.Do(func() {
+		p.client = regru.NewClient(p.Username, p.Password)
+	})
 }
 
 // GetRecords lists all the records in the zone.
 func (p *Provider) GetRecords(ctx context.Context, zone string) ([]libdns.Record, error) {
 	// Make sure to return RR-type-specific structs, not libdns.RR structs.
-	return nil, fmt.Errorf("TODO: not implemented")
+	p.initClient()
+	// zones, err := p.client.ListZonesByName(ctx, zone)
+	// if err != nil {
+	// 	return nil, err
+	// }
+
+	// zones[0].
+	rrs, err := p.client.ListRecords(ctx, regru.ListDNSRecordsParams{ZoneName: zone})
+	if err != nil {
+		return nil, fmt.Errorf("reg.ru GetRecords: %w", err)
+	}
+
+	var out []libdns.Record
+	for _, rr := range rrs {
+		// out = append(out, rr.)
+		var _ = rr
+	}
+	return out, nil
 }
 
 // AppendRecords adds records to the zone. It returns the records that were added.
