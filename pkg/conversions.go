@@ -10,66 +10,102 @@ import (
 	"github.com/libdns/libdns"
 )
 
-func (self *DomainResponse) IntoLibnsRecords() ([]libdns.Record, error) {
-	ttl, err := parseTTL(self.SOA.TTL)
+func (self *GetDomainResponse) IntoLibnsRecords() ([]libdns.Record, error) {
+	ttl, err := fromRegruTTL(self.SOA.TTL)
 	if err != nil {
 		return nil, err
 	}
 	result := []libdns.Record{}
 	for _, record := range self.Records {
-		switch record.Rectype {
-		case "TXT":
-			result = append(result, libdns.TXT{
-				Name: record.Subname,
-				TTL:  ttl,
-				Text: record.Content,
-			})
-		case "A", "AAAA":
-			addr, err := netip.ParseAddr(record.Content)
-			if err != nil {
-				// return nil, err
-				slog.Error("could not parse IP address:", "addr", record.Content)
-				continue
-			}
-			result = append(result, libdns.Address{
-				Name: record.Subname,
-				TTL:  ttl,
-				IP:   addr,
-			})
-		case "NS":
-			result = append(result, libdns.NS{
-				Name:   record.Subname,
-				TTL:    ttl,
-				Target: record.Content,
-			})
-		case "CNAME":
-			result = append(result, libdns.CNAME{
-				Name:   record.Subname,
-				TTL:    ttl,
-				Target: record.Content,
-			})
-		case "MX":
-			pref, err := record.Prio.Int64()
-			if err != nil {
-				slog.Error("could not convert json Number to int:", "pref", record.Prio)
-				continue
-			}
-			result = append(result, libdns.MX{
-				Name:       record.Subname,
-				TTL:        ttl,
-				Preference: uint16(pref),
-				Target:     record.Content,
-			})
-		default:
-			slog.Error("unsupported record type:", "type", record.Rectype, "record", record)
+		res, err := record.intoLibdnsRecordWithTTL(ttl)
+		if err != nil {
+			slog.Error("could not convert DNSRecord into regru.record:", "err", err)
 			continue
 		}
-
+		result = append(result, res)
 	}
 	return result, nil
 }
 
-func parseTTL(s string) (time.Duration, error) {
+func fromLibdnsRecordWithTTL(record libdns.Record) (*DNSRecord, string, error) {
+	result := DNSRecord{
+		Rectype: record.RR().Type,
+		Subname: record.RR().Name,
+		// Content: record.RR().Data,
+	}
+	ttl := intoRegruTTLWithRoundingToSeconds(record.RR().TTL)
+	switch rec_t := record.(type) {
+	case libdns.Address:
+		result.Content = rec_t.IP.String()
+	case libdns.CNAME:
+		result.Content = rec_t.Target
+	case libdns.MX:
+		result.Content = rec_t.Target
+		result.Priority = &rec_t.Preference
+	case libdns.NS:
+		result.Content = rec_t.Target
+	case libdns.TXT:
+		result.Content = rec_t.Text
+	default:
+		return nil, ttl, fmt.Errorf("unsupported record type: %s", result.Rectype)
+	}
+	return &result, ttl, nil
+}
+
+func (self DNSRecord) intoLibdnsRecordWithTTL(ttl time.Duration) (libdns.Record, error) {
+
+	switch self.Rectype {
+	case "A", "AAAA":
+		addr, err := netip.ParseAddr(self.Content)
+		if err != nil {
+			return nil, fmt.Errorf("could not parse IP address of %s: %w", self.Content, err)
+		}
+		return libdns.Address{
+			Name: self.Subname,
+			TTL:  ttl,
+			IP:   addr,
+		}, nil
+	case "CNAME":
+		return libdns.CNAME{
+			Name:   self.Subname,
+			TTL:    ttl,
+			Target: self.Content,
+		}, nil
+	case "MX":
+		return libdns.MX{
+			Name:       self.Subname,
+			TTL:        ttl,
+			Preference: *self.Priority,
+			Target:     self.Content,
+		}, nil
+	case "NS":
+		return libdns.NS{
+			Name:   self.Subname,
+			TTL:    ttl,
+			Target: self.Content,
+		}, nil
+	case "TXT":
+		return libdns.TXT{
+			Name: self.Subname,
+			TTL:  ttl,
+			Text: self.Content,
+		}, nil
+	default:
+		return nil, fmt.Errorf("unsupported record type: %s", self.Rectype)
+	}
+}
+
+func intoRegruTTLWithRoundingToSeconds(ttl time.Duration) string {
+	if ttl < 0 {
+		slog.Error("TTL is somehow negative", "ttl", ttl)
+	}
+	if ttl%time.Second != 0 {
+		slog.Warn("TTL will be rounded up to seconds", "ttl", ttl)
+	}
+	return strconv.FormatInt(int64(ttl/time.Second), 10)
+}
+
+func fromRegruTTL(s string) (time.Duration, error) {
 
 	n, err := strconv.Atoi(s[:len(s)-1])
 	if err != nil {

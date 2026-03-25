@@ -3,6 +3,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log"
+	"os"
 
 	r "github.com/heinwol/libdns-regru/pkg"
 )
@@ -10,9 +12,9 @@ import (
 func some_test() error {
 	client, _ := r.NewRegruClientForTests()
 
-	var respBody r.ZoneGetResourceRecordsResponse
-	res, err := client.Client.R().SetBody(r.ZoneGetResourceRecordsRequest{
-		Domains: []r.DomainRequest{{
+	var respBody r.GetResourceRecordsResponse
+	res, err := client.Client.R().SetBody(r.GetResourceRecordsRequest{
+		Domains: []r.GetDomainRequest{{
 			DName: "helix-info.space",
 		}},
 	}).
@@ -30,39 +32,15 @@ func some_test() error {
 }
 
 func some_test2() error {
-	var raw = `{
-		"answer": {
-			"domains": [
-			{
-				"dname": "helix-info.space",
-				"result": "success",
-				"rrs": [
-					{
-						"content": "2.56.178.233",
-						"prio": 0,
-						"rectype": "TXT",
-						"state": "A",
-						"subname": "@"
-					}
-				],
-				"soa": {
-					"minimum_ttl": "3h",
-					"ttl": "1m"
-				}
-			}
-			]
-		},
-		"charset": "utf-8",
-		"result": "success"
-		}`
-	var resp r.ZoneGetResourceRecordsResponse
-	if err := json.Unmarshal([]byte(raw), &resp); err != nil {
+	records, err := os.ReadFile("data/current_records.json")
+	if err != nil {
+		log.Fatal(err)
+	}
+	var resp r.GetResourceRecordsResponse
+	if err := json.Unmarshal(records, &resp); err != nil {
 		fmt.Printf("unmarshal error: %v\n", err)
 		return err
 	}
-	r.PrettyPrint("result: %s\n", resp.Result)
-	r.PrettyPrint("domains: %+v\n", resp.Answer.Domains)
-	r.PrettyPrint("first record: %+v\n", resp.Answer.Domains[0].Records)
 	r.PrettyPrint(resp.Answer.Domains[0].IntoLibnsRecords())
 	return nil
 }

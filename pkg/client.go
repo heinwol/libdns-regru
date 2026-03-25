@@ -13,16 +13,17 @@ import (
 	"resty.dev/v3"
 )
 
-// Client:
-
-type Credentials struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-}
-
 type RegruClient struct {
 	Client      resty.Client
 	Credentials Credentials
+}
+
+type APIResponseError struct {
+	GeneralResponseErrorInfoAndResult
+}
+
+func (self *APIResponseError) Error() string {
+	return fmt.Sprintf("reg.ru request resulted in error: %#v", self.GeneralResponseErrorInfoAndResult)
 }
 
 func NewRegruClientForTests() (*RegruClient, error) {
@@ -81,12 +82,12 @@ func NewRegruClient(credentials Credentials) (*RegruClient, error) {
 				return nil
 			}
 
-			var basic APIResponse[any]
-			if err := json.Unmarshal(b, &basic); err != nil {
+			var api_response APIResponse[any]
+			if err := json.Unmarshal(b, &api_response); err != nil {
 				return fmt.Errorf("reg.ru: unmarshal envelope: %w", err)
 			}
-			if basic.Result != "success" {
-				return fmt.Errorf("reg.ru: %s – %s", basic.ErrorCode, basic.ErrorText)
+			if api_response.Result != "success" {
+				return fmt.Errorf("reg.ru: %s – %s", api_response.ErrorCode, api_response.ErrorText)
 			}
 
 			if res.Request.Result != nil {
@@ -95,68 +96,4 @@ func NewRegruClient(credentials Credentials) (*RegruClient, error) {
 			return nil
 		})
 	return &RegruClient{Client: *inner, Credentials: credentials}, nil
-}
-
-// Requests:
-
-type DomainRequest struct {
-	DName string `json:"dname"`
-}
-
-type ZoneGetResourceRecordsRequest struct {
-	Domains []DomainRequest `json:"domains"`
-}
-
-// Responses:
-
-type APIResponse[T any] struct {
-	GeneralResponseErrorInfoAndResult
-	Answer       T      `json:"answer,omitempty"`
-	CharSet      string `json:"charset,omitempty"`
-	MessageStore string `json:"messagestore,omitempty"`
-}
-
-type GeneralResponseErrorInfoAndResult struct {
-	ErrorCode   string `json:"error_code,omitempty"`
-	ErrorText   string `json:"error_text,omitempty"`
-	ErrorParams any    `json:"error_params,omitempty"`
-	Result      string `json:"result"`
-}
-
-type DomainResponse struct {
-	GeneralResponseErrorInfoAndResult
-	DName     string      `json:"dname"`
-	Records   []DNSRecord `json:"rrs"`
-	ServiceID json.Number `json:"service_id,omitempty"`
-	ServType  string      `json:"servtype,omitempty"`
-	SOA       SOA         `json:"soa"`
-}
-
-type DNSRecord struct {
-	Rectype string      `json:"rectype"`
-	Subname string      `json:"subname"`
-	Content string      `json:"content"`
-	Prio    json.Number `json:"prio,omitempty"`
-	State   string      `json:"state,omitempty"`
-}
-
-type SOA struct {
-	MinimumTTL string `json:"minimum_ttl,omitempty"`
-	TTL        string `json:"ttl,omitempty"`
-}
-
-type AnswerDomains struct {
-	Domains []DomainResponse `json:"domains"`
-}
-
-type ZoneGetResourceRecordsResponse = APIResponse[AnswerDomains]
-
-type AddTXTResponse struct {
-	GeneralResponseErrorInfoAndResult
-	Answer AnswerDomains `json:"answer"`
-}
-
-type GetRecordsResponse struct {
-	GeneralResponseErrorInfoAndResult
-	Answer AnswerDomains `json:"answer"`
 }
