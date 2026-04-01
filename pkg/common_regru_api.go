@@ -1,7 +1,9 @@
 package libdns_regru
 
 import (
+	"context"
 	"encoding/json"
+	"time"
 )
 
 // type APIResponseError struct {
@@ -92,4 +94,54 @@ func (r DNSRecord) MarshalJSON() ([]byte, error) {
 
 type GeneralZoneRequest struct {
 	DName string `json:"dname"`
+}
+
+// Update SOA
+
+/// Request
+
+type UpdateSOARequest struct {
+	Domains []GeneralZoneRequest `json:"domains"`
+	SOA
+}
+
+/// Response
+
+type UpdateSOAResponse = APIResponse[UpdateSOADomainsAnswer]
+
+type UpdateSOADomainsAnswer struct {
+	Domains []UpdateSOADomainResponse `json:"domains"`
+}
+
+type UpdateSOADomainResponse struct {
+	GeneralResponseErrorInfoAndResult
+	DName     string `json:"dname"`
+	ServiceID string `json:"service_id,omitempty"`
+}
+
+func (self *RegruClient) UpdateSOA(
+	ctx context.Context,
+	zone string,
+	ttl time.Duration,
+) (*UpdateSOAResponse, error) {
+	req := UpdateSOARequest{
+		Domains: []GeneralZoneRequest{{
+			DName: zone,
+		}},
+		SOA: SOA{
+			// TODO: check whether empty minimum ttl works
+			TTL: intoRegruTTLWithRoundingToSeconds(ttl),
+		},
+	}
+
+	var respBody UpdateSOAResponse
+	_, err := self.Client.R().
+		SetBody(req).
+		SetContext(ctx).
+		SetResult(&respBody).
+		Post("/zone/update_soa")
+	if err != nil {
+		return nil, err
+	}
+	return &respBody, nil
 }

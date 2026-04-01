@@ -11,35 +11,15 @@ import (
 	"github.com/libdns/libdns"
 )
 
-// TODO: Providers must not require additional provisioning steps by the callers; it
-// should work simply by populating a struct and calling methods on it. If your DNS
-// service requires long-lived state or some extra provisioning step, do it implicitly
-// when methods are called; sync.Once can help with this, and/or you can use a
-// sync.(RW)Mutex in your Provider struct to synchronize implicit provisioning.
+type Zone = string
 
 // Provider facilitates DNS record manipulation with <TODO: PROVIDER NAME>.
 type Provider struct {
-	// TODO: Put config fields here (with snake_case json struct tags on exported fields), for example:
 	Username string `json:"username"`
 	Password string `json:"password"`
 
-	client     *RegruClient
-	once       sync.Once
-	init_error error
-	// Exported config fields should be JSON-serializable or omitted (`json:"-"`)
-}
-
-func (p *Provider) initClient(ctx context.Context) error {
-	p.once.Do(func() {
-		p.client, p.init_error = NewRegruClient(Credentials{
-			Username: p.Username,
-			Password: p.Password,
-		})
-		if p.init_error == nil {
-			p.client.Client.SetContext(ctx)
-		}
-	})
-	return p.init_error
+	client onceCell[RegruClient]
+	soa    sync.Map // map[Zone]SOA
 }
 
 // GetRecords lists all the records in the zone.
@@ -49,11 +29,11 @@ func (p *Provider) GetRecords(ctx context.Context, zone string) ([]libdns.Record
 		return nil, err
 	}
 
-	records, err := p.client.GetZoneRecords(ctx, zone)
+	resp, err := p.client.Inner.GetZoneRecords(ctx, zone)
 	if err != nil {
 		return nil, err
 	}
-	records_conv, err := records.IntoLibnsRecords()
+	records_conv, err := resp.IntoLibdnsRecords()
 	// e := libdns.AtomicErr
 	return records_conv, err
 }

@@ -27,3 +27,12 @@ _Remove this section from the readme before publishing._
 This package implements the [libdns interfaces](https://github.com/libdns/libdns) for \<PROVIDER\>, allowing you to manage DNS records.
 
 TODO: Show how to configure and use. Explain any caveats.
+
+- reg.ru uses TTL configuration **per zone**, not per record.
+  - The mechanism chosen for handling AppendRecords/SetRecords TTL is the following:
+    1. SOA data is cached.
+    2. Whenever an `Append/Set` request is to be sent, all the input records are checked for any ttl modifications.
+       - If ttl across all records is the same, the changes are propagated to the provider as a separate `UpdateSOA` request (happening after records modifications).
+       - If ttl fields differ, the **minimum** of them is selected and written into the input records. Modified versions are returned from the function (if changes were successful, of course).
+    3. SOA.MinimumTTL is **never** modified, you should manually call `UpdateSOA` whenever you want to change it.
+- reg.ru does not support transactional changes. If a libdns request fails in the middle, **no cleanup is performed** (maybe we'll deal with it later).

@@ -87,7 +87,7 @@ func NewRegruClient(credentials Credentials) (*RegruClient, error) {
 				return fmt.Errorf("reg.ru: unmarshal envelope: %w", err)
 			}
 			if api_response.Result != "success" {
-				return fmt.Errorf("reg.ru: %s – %s", api_response.ErrorCode, api_response.ErrorText)
+				return &APIResponseError{api_response.GeneralResponseErrorInfoAndResult}
 			}
 
 			if res.Request.Result != nil {

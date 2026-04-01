@@ -10,7 +10,7 @@ import (
 	"github.com/libdns/libdns"
 )
 
-func (self *GetDomainResponse) IntoLibnsRecords() ([]libdns.Record, error) {
+func (self *GetDomainResponse) IntoLibdnsRecords() ([]libdns.Record, error) {
 	ttl, err := fromRegruTTL(self.SOA.TTL)
 	if err != nil {
 		return nil, err

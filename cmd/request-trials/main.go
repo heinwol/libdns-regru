@@ -41,7 +41,7 @@ func some_test2() error {
 		fmt.Printf("unmarshal error: %v\n", err)
 		return err
 	}
-	r.PrettyPrint(resp.Answer.Domains[0].IntoLibnsRecords())
+	r.PrettyPrint(resp.Answer.Domains[0].IntoLibdnsRecords())
 	return nil
 }
 
