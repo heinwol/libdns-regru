@@ -3,6 +3,7 @@ package libdns_regru
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 )
 
@@ -17,11 +18,27 @@ type APIResponse[T any] struct {
 	MessageStore string `json:"messagestore,omitempty"`
 }
 
+type APIResponseError struct {
+	GeneralResponseErrorInfoAndResult
+}
+
+func (self *APIResponseError) Error() string {
+	return fmt.Sprintf("reg.ru request resulted in error: %#v", self.GeneralResponseErrorInfoAndResult)
+}
+
 type GeneralResponseErrorInfoAndResult struct {
 	ErrorCode   string `json:"error_code,omitempty"`
 	ErrorText   string `json:"error_text,omitempty"`
 	ErrorParams any    `json:"error_params,omitempty"`
 	Result      string `json:"result"`
+}
+
+func (self *GeneralResponseErrorInfoAndResult) intoError() *APIResponseError {
+	if self.Result != "success" {
+		return &APIResponseError{*self}
+	} else {
+		return nil
+	}
 }
 
 type Credentials struct {
@@ -96,6 +113,14 @@ type GeneralZoneRequest struct {
 	DName string `json:"dname"`
 }
 
+type requestWithName interface {
+	getCommandName() string
+}
+
+func getUrl(req requestWithName) string {
+	return fmt.Sprintf("/zone/%s", req.getCommandName())
+}
+
 // Update SOA
 
 /// Request
@@ -121,7 +146,7 @@ type UpdateSOADomainResponse struct {
 
 func (self *RegruClient) UpdateSOA(
 	ctx context.Context,
-	zone string,
+	zone Zone,
 	ttl time.Duration,
 ) (*UpdateSOAResponse, error) {
 	req := UpdateSOARequest{

@@ -21,10 +21,18 @@ type AddAliasRequest struct {
 	IPAddr string `json:"ipaddr"`
 }
 
-// type AddAAAARequest struct {
-// 	GeneralAddDomainRequest
-// 	IPAddr string `json:"ipaddr"`
-// }
+func (self AddAliasRequest) getCommandName() string {
+	return "add_alias"
+}
+
+type AddAAAARequest struct {
+	GeneralAddDomainRequest
+	IPAddr string `json:"ipaddr"`
+}
+
+func (self AddAAAARequest) getCommandName() string {
+	return "add_aaaa"
+}
 
 type AddCAARequest struct {
 	GeneralAddDomainRequest
@@ -33,9 +41,17 @@ type AddCAARequest struct {
 	Value string `json:"value"`
 }
 
+func (self AddCAARequest) getCommandName() string {
+	return "add_caa"
+}
+
 type AddCNAMERequest struct {
 	GeneralAddDomainRequest
 	Canonical string `json:"canonical_name"`
+}
+
+func (self AddCNAMERequest) getCommandName() string {
+	return "add_cname"
 }
 
 type AddMXRequest struct {
@@ -44,15 +60,27 @@ type AddMXRequest struct {
 	Priority   *uint16 `json:"priority,omitempty"`
 }
 
+func (self AddMXRequest) getCommandName() string {
+	return "add_mx"
+}
+
 type AddNSRequest struct {
 	GeneralAddDomainRequest
 	DNSServer    string `json:"dns_server"`
 	RecordNumber *int   `json:"record_number,omitempty"`
 }
 
+func (self AddNSRequest) getCommandName() string {
+	return "add_ns"
+}
+
 type AddTXTRequest struct {
 	GeneralAddDomainRequest
 	Text string `json:"text"`
+}
+
+func (self AddTXTRequest) getCommandName() string {
+	return "add_txt"
 }
 
 // Responses:
@@ -71,9 +99,29 @@ type AddDomainResponse struct {
 
 func (self *RegruClient) AddZoneRecord(
 	ctx context.Context,
-	zone string,
+	zone Zone,
 	record libdns.Record,
 ) (*AddDomainResponse, error) {
+	req, err := addRequestFromLibdns(zone, record)
+	if err != nil {
+		return nil, err
+	}
+	var respBody AddDomainResponse
+	_, err = self.Client.R().
+		SetBody(req).
+		SetContext(ctx).
+		SetResult(&respBody).
+		Post(getUrl(req))
+	if err != nil {
+		return nil, err
+	}
+	return &respBody, nil
+}
+
+func addRequestFromLibdns(
+	zone Zone,
+	record libdns.Record,
+) (requestWithName, error) {
 	basic_req := GeneralAddDomainRequest{
 		Domains: []GeneralZoneRequest{{
 			DName: zone,
@@ -81,74 +129,51 @@ func (self *RegruClient) AddZoneRecord(
 		Subdomain: record.RR().Name,
 	}
 
-	var specific_request any
-	var req_url string
+	var specific_request requestWithName
 
 	switch rec_t := record.(type) {
 	case libdns.Address:
-		specific_request = AddAliasRequest{
-			GeneralAddDomainRequest: basic_req,
-			IPAddr:                  rec_t.IP.String(),
-		}
 		if rec_t.IP.Is4() {
-			req_url = "/zone/add_alias"
+			specific_request = AddAliasRequest{
+				GeneralAddDomainRequest: basic_req,
+				IPAddr:                  rec_t.IP.String(),
+			}
 		} else {
-			req_url = "/zone/add_aaaa"
-
+			specific_request = AddAAAARequest{
+				GeneralAddDomainRequest: basic_req,
+				IPAddr:                  rec_t.IP.String(),
+			}
+		}
+	case libdns.CAA:
+		specific_request = AddCAARequest{
+			GeneralAddDomainRequest: basic_req,
+			Flags:                   rec_t.Flags,
+			Tag:                     rec_t.Tag,
+			Value:                   rec_t.Value,
 		}
 	case libdns.CNAME:
 		specific_request = AddCNAMERequest{
 			GeneralAddDomainRequest: basic_req,
 			Canonical:               rec_t.Target,
 		}
-		req_url = "/zone/add_cname"
 	case libdns.MX:
 		specific_request = AddMXRequest{
 			GeneralAddDomainRequest: basic_req,
 			MailServer:              rec_t.Target,
 			Priority:                &rec_t.Preference,
 		}
-		req_url = "/zone/add_mx"
 	case libdns.NS:
 		specific_request = AddNSRequest{
 			GeneralAddDomainRequest: basic_req,
 			DNSServer:               rec_t.Target,
 		}
-		req_url = "/zone/add_ns"
 	case libdns.TXT:
 		specific_request = AddTXTRequest{
 			GeneralAddDomainRequest: basic_req,
 			Text:                    rec_t.Text,
 		}
-		req_url = "/zone/add_txt"
 	default:
 		return nil, fmt.Errorf("unsupported record type: %s", rec_t.RR().Type)
 	}
-	var respBody AddDomainResponse
-	_, err := self.Client.R().
-		SetBody(specific_request).
-		SetContext(ctx).
-		SetResult(&respBody).
-		Post(req_url)
-	if err != nil {
-		return nil, err
-	}
-	return &respBody, nil
+	return specific_request, nil
 }
-
-// func (self *RegruClient) commonAddZoneRecord(
-// 	ctx context.Context,
-
-// 	zone string,
-// 	record libdns.Record,
-// 	add_ttl bool,
-// ) (*AddDomainResponse, error) {
-// 	basic_req := GeneralAddDomainRequest{
-// 		Domains: []GeneralZoneRequest{{
-// 			DName: zone,
-// 		}},
-// 		Subdomain: record.RR().Name,
-// 	}
-// 	// specific_request :=
-// 	var respBody AddDomainResponse
-// }

@@ -8,7 +8,7 @@ import (
 
 // Requests
 
-type RemoveDomainRequest struct {
+type RemoveRecordRequest struct {
 	Domains       []GeneralZoneRequest `json:"domains"`
 	Subdomain     string               `json:"subdomain"`
 	RecordType    string               `json:"record_type"`
@@ -16,35 +16,44 @@ type RemoveDomainRequest struct {
 	ContentFilter string               `json:"content,omitempty"`
 }
 
-// Responses:
-
-type RemoveResponse = APIResponse[RemoveDomainsAnswer]
-
-type RemoveDomainsAnswer struct {
-	Domains []RemoveDomainResponse `json:"domains"`
+func (self RemoveRecordRequest) getCommandName() string {
+	return "remove_record"
 }
 
-type RemoveDomainResponse struct {
+// Responses:
+
+type RemoveResponse = APIResponse[RemoveRecordAnswer]
+
+type RemoveRecordAnswer struct {
+	Domains []RemoveRecordResponse `json:"domains"`
+}
+
+type RemoveRecordResponse struct {
 	GeneralResponseErrorInfoAndResult
 	DName     string `json:"dname"`
 	ServiceID string `json:"service_id,omitempty"`
 }
 
-func (self *RegruClient) RemoveZoneRecord(ctx context.Context, zone string, record libdns.Record) (*RemoveDomainResponse, error) {
-	var respBody RemoveDomainResponse
-	_, err := self.Client.R().SetBody(RemoveDomainRequest{
+// Removes a record for zone. The total conversion between [libdns.Record] and [DNSRecord] is not
+// performed, just `Name` and `Type` fields are used in the request.
+func (self *RegruClient) RemoveZoneRecord(
+	ctx context.Context,
+	zone Zone,
+	record libdns.Record,
+) (*RemoveRecordResponse, error) {
+	req := RemoveRecordRequest{
 		Domains: []GeneralZoneRequest{{
 			DName: zone,
 		}},
 		Subdomain:  record.RR().Name,
 		RecordType: record.RR().Type,
 		// we don't use other fields anyway
-	}).
+	}
+	var respBody RemoveRecordResponse
+	_, err := self.Client.R().
+		SetBody(req).
 		SetContext(ctx).
 		SetResult(&respBody).
-		Post("/zone/remove_record")
-	if err != nil {
-		return nil, err
-	}
-	return &respBody, nil
+		Post(getUrl(req))
+	return &respBody, err
 }

@@ -4,6 +4,10 @@
         "godocs",
         "libdns",
         "libdnstemplate",
-        "Regru"
+        "messagestore",
+        "prio",
+        "rectype",
+        "Regru",
+        "resty"
     ]
 }

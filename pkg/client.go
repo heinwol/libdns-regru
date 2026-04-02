@@ -18,14 +18,6 @@ type RegruClient struct {
 	Credentials Credentials
 }
 
-type APIResponseError struct {
-	GeneralResponseErrorInfoAndResult
-}
-
-func (self *APIResponseError) Error() string {
-	return fmt.Sprintf("reg.ru request resulted in error: %#v", self.GeneralResponseErrorInfoAndResult)
-}
-
 func NewRegruClientForTests() (*RegruClient, error) {
 	username, found := os.LookupEnv("REGRU_USERNAME")
 	if !found {
@@ -86,10 +78,11 @@ func NewRegruClient(credentials Credentials) (*RegruClient, error) {
 			if err := json.Unmarshal(b, &api_response); err != nil {
 				return fmt.Errorf("reg.ru: unmarshal envelope: %w", err)
 			}
-			if api_response.Result != "success" {
-				return &APIResponseError{api_response.GeneralResponseErrorInfoAndResult}
+			if it := api_response.intoError(); it != nil {
+				return it
 			}
 
+			// TODO: is this some bs or does it really matter?
 			if res.Request.Result != nil {
 				return json.Unmarshal(b, res.Request.Result)
 			}

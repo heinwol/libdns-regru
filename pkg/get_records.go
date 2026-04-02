@@ -39,7 +39,7 @@ type GetDomainsAnswer struct {
 
 type GetResourceRecordsResponse = APIResponse[GetDomainsAnswer]
 
-func (self *RegruClient) GetZoneRecords(ctx context.Context, zone string) (*GetDomainResponse, error) {
+func (self *RegruClient) GetZoneRecords(ctx context.Context, zone Zone) (*GetDomainResponse, error) {
 	var respBody GetResourceRecordsResponse
 	_, err := self.Client.R().SetBody(GetResourceRecordsRequest{
 		Domains: []GetDomainRequest{{

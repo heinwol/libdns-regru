@@ -6,7 +6,6 @@ import (
 )
 
 func (p *Provider) initClient(ctx context.Context) error {
-
 	_, err := p.client.Do(func() (*RegruClient, error) {
 		client, err := NewRegruClient(Credentials{
 			Username: p.Username,
@@ -26,7 +25,7 @@ func (p *Provider) getSOA(ctx context.Context, zone Zone) (*SOA, error) {
 		return nil, err
 	}
 
-	soa, ok := p.soa.Load(zone)
+	soa, ok := p.soa_cache.Load(zone)
 	if ok {
 		soa_ := soa.(SOA)
 		return &soa_, nil
@@ -37,7 +36,7 @@ func (p *Provider) getSOA(ctx context.Context, zone Zone) (*SOA, error) {
 		return nil, err
 	}
 
-	p.soa.Store(zone, resp.SOA)
+	p.soa_cache.Store(zone, resp.SOA)
 	return &resp.SOA, nil
 }
 
@@ -53,7 +52,7 @@ func (p *Provider) updateSOA(ctx context.Context, zone Zone, ttl time.Duration) 
 	if err != nil {
 		return err
 	}
-	p.soa.Store(zone, SOA{
+	p.soa_cache.Store(zone, SOA{
 		MinimumTTL: cached_soa.MinimumTTL,
 		TTL:        intoRegruTTLWithRoundingToSeconds(ttl),
 	})
