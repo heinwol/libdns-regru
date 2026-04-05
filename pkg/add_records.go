@@ -2,7 +2,6 @@ package libdns_regru
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/libdns/libdns"
@@ -86,28 +85,29 @@ func (self AddTXTRequest) getCommandName() string {
 
 // Responses:
 
-type AddResponse = APIResponse[AddDomainsAnswer]
+type AddResponse = APIResponse[DomainsAnswer]
 
-type AddDomainsAnswer struct {
-	Domains []AddDomainResponse `json:"domains"`
-}
+// type AddResponse = APIResponse[AddDomainsAnswer]
+// type AddDomainsAnswer struct {
+// 	Domains []AddDomainResponse `json:"domains"`
+// }
 
-type AddDomainResponse struct {
-	GeneralResponseErrorInfoAndResult
-	DName     string      `json:"dname"`
-	ServiceID json.Number `json:"service_id,omitempty"`
-}
+// type AddDomainResponse struct {
+// 	GeneralResponseErrorInfoAndResult
+// 	DName     string      `json:"dname"`
+// 	ServiceID json.Number `json:"service_id,omitempty"`
+// }
 
 func (self *RegruClient) AddZoneRecord(
 	ctx context.Context,
 	zone Zone,
 	record libdns.Record,
-) (*AddDomainResponse, error) {
+) (*SimpleDomainResponse, error) {
 	req, err := addRequestFromLibdns(zone, record)
 	if err != nil {
 		return nil, err
 	}
-	var respBody AddDomainResponse
+	var respBody AddResponse
 	_, err = self.Client.R().
 		SetBody(req).
 		SetContext(ctx).
@@ -116,7 +116,7 @@ func (self *RegruClient) AddZoneRecord(
 	if err != nil {
 		return nil, err
 	}
-	return &respBody, nil
+	return searchZoneInAnswerDomain(respBody.Answer.Domains, zone)
 }
 
 func addRequestFromLibdns(

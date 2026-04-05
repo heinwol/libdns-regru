@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/libdns/libdns"
+	"github.com/stretchr/testify/assert"
 )
 
 // testZone is the domain known to be available under the reg.ru test account.
@@ -48,16 +49,11 @@ func TestIntegration_GetZoneRecords(t *testing.T) {
 	defer cancel()
 
 	resp, err := client.GetZoneRecords(ctx, testZone)
-	if err != nil {
-		t.Fatalf("GetZoneRecords: %v", err)
+	if assert.NoError(t, err) {
+		assert.Equal(t, resp.DName, testZone)
+		assert.Equal(t, resp.Result, "success")
+		assert.NotEmpty(t, resp.SOA.TTL)
 	}
-	if resp.DName != testZone {
-		t.Errorf("DName = %q, want %q", resp.DName, testZone)
-	}
-	if resp.SOA.TTL == "" {
-		t.Error("SOA.TTL is empty")
-	}
-	t.Logf("zone=%s soa_ttl=%s records=%d", resp.DName, resp.SOA.TTL, len(resp.Records))
 	for _, r := range resp.Records {
 		t.Logf("  %s %s %s", r.Rectype, r.Subname, r.Content)
 	}
@@ -96,10 +92,10 @@ func TestIntegration_AddTXTRecord(t *testing.T) {
 
 	rec := libdnsTXT("_acme-challenge-integration-test", "integration-test-token")
 	resp, err := client.AddZoneRecord(ctx, testZone, rec)
-	if err != nil {
-		t.Fatalf("AddZoneRecord: %v", err)
+	if assert.NoError(t, err) {
+		assert.Equal(t, resp.DName, testZone)
+		assert.Equal(t, resp.Result, "success")
 	}
-	t.Logf("add_txt response: result=%s dname=%s", resp.Result, resp.DName)
 }
 
 // ---------------------------------------------------------------------------
@@ -113,10 +109,10 @@ func TestIntegration_AddARecord(t *testing.T) {
 
 	rec := libdnsAddress4("integration-test-host", "1.2.3.4")
 	resp, err := client.AddZoneRecord(ctx, testZone, rec)
-	if err != nil {
-		t.Fatalf("AddZoneRecord (A): %v", err)
+	if assert.NoError(t, err) {
+		assert.Equal(t, resp.DName, testZone)
+		assert.Equal(t, resp.Result, "success")
 	}
-	t.Logf("add_alias response: result=%s dname=%s", resp.Result, resp.DName)
 }
 
 // ---------------------------------------------------------------------------
@@ -130,10 +126,10 @@ func TestIntegration_RemoveTXTRecord(t *testing.T) {
 
 	rec := libdnsTXT("_acme-challenge-integration-test", "integration-test-token")
 	resp, err := client.RemoveZoneRecord(ctx, testZone, rec)
-	if err != nil {
-		t.Fatalf("RemoveZoneRecord: %v", err)
+	if assert.NoError(t, err) {
+		assert.Equal(t, resp.DName, testZone)
+		assert.Equal(t, resp.Result, "success")
 	}
-	t.Logf("remove_record response: result=%s domains=%s", resp.Result, resp.Answer.Domains)
 }
 
 // ---------------------------------------------------------------------------

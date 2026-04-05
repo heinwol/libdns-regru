@@ -3,8 +3,6 @@ package libdns_regru
 import (
 	"context"
 	"encoding/json"
-	"fmt"
-	"log/slog"
 )
 
 // Requests:
@@ -26,6 +24,10 @@ type GetDomainResponse struct {
 	ServiceID json.Number `json:"service_id,omitempty"`
 	ServType  string      `json:"servtype,omitempty"`
 	SOA       SOA         `json:"soa"`
+}
+
+func (self GetDomainResponse) getDName() string {
+	return self.DName
 }
 
 type SOA struct {
@@ -53,12 +55,5 @@ func (self *RegruClient) GetZoneRecords(ctx context.Context, zone Zone) (*GetDom
 	if err != nil {
 		return nil, err
 	}
-	if len(respBody.Answer.Domains) == 0 {
-		return nil, fmt.Errorf("no domains match zone `%s`", zone)
-	}
-	if len(respBody.Answer.Domains) > 1 {
-		slog.Warn("zone matched several domains, taking the first one:", "Domains", respBody.Answer.Domains)
-	}
-
-	return &respBody.Answer.Domains[0], nil
+	return searchZoneInAnswerDomain(respBody.Answer.Domains, zone)
 }

@@ -406,8 +406,8 @@ func makeUpdateResponse(zone string, actionResults ...map[string]any) *UpdateRes
 			Domains: []UpdateZoneResponse{
 				{
 					GeneralResponseErrorInfoAndResult: GeneralResponseErrorInfoAndResult{Result: "success"},
-					DName:      zone,
-					ActionList: actions,
+					DName:                             zone,
+					ActionList:                        actions,
 				},
 			},
 		},
@@ -421,7 +421,7 @@ func TestAnalyzeUpdateResponse_AllSuccess(t *testing.T) {
 		map[string]any{"action": "add_txt", "result": "success"},
 	)
 
-	updated, err := AnalyzeUpdateResponse(resp, zone, records)
+	updated, err := AnalyzeUpdateResponse(&resp.Answer.Domains[0], zone, records)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -439,7 +439,7 @@ func TestAnalyzeUpdateResponse_ZoneNotFound(t *testing.T) {
 			Domains: []UpdateZoneResponse{}, // zone missing
 		},
 	}
-	_, err := AnalyzeUpdateResponse(resp, zone, records)
+	_, err := AnalyzeUpdateResponse(&resp.Answer.Domains[0], zone, records)
 	if err == nil {
 		t.Error("expected error when zone not in response")
 	}
@@ -451,7 +451,7 @@ func TestAnalyzeUpdateResponse_ActionError(t *testing.T) {
 	resp := makeUpdateResponse(zone,
 		map[string]any{"action": "add_txt", "result": "error", "error_code": "SUBD_INVALID"},
 	)
-	_, err := AnalyzeUpdateResponse(resp, zone, records)
+	_, err := AnalyzeUpdateResponse(&resp.Answer.Domains[0], zone, records)
 	if err == nil {
 		t.Error("expected error from action-level failure")
 	}
@@ -464,7 +464,7 @@ func TestAnalyzeUpdateResponse_RecordNotInActionList(t *testing.T) {
 	resp := makeUpdateResponse(zone,
 		map[string]any{"action": "add_alias", "result": "success"},
 	)
-	updated, err := AnalyzeUpdateResponse(resp, zone, records)
+	updated, err := AnalyzeUpdateResponse(&resp.Answer.Domains[0], zone, records)
 	// Should produce an error (record not found in answer) and no updated records
 	if err == nil {
 		t.Error("expected error because TXT was not in action_list")

@@ -2,7 +2,6 @@ package libdns_regru
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/libdns/libdns"
 )
@@ -23,17 +22,17 @@ func (self RemoveRecordRequest) getCommandName() string {
 
 // Responses:
 
-type RemoveResponse = APIResponse[RemoveRecordAnswer]
+type RemoveResponse = APIResponse[DomainsAnswer]
 
-type RemoveRecordAnswer struct {
-	Domains []RemoveRecordResponse `json:"domains"`
-}
+// type RemoveRecordAnswer struct {
+// 	Domains []RemoveRecordResponse `json:"domains"`
+// }
 
-type RemoveRecordResponse struct {
-	GeneralResponseErrorInfoAndResult
-	DName     string      `json:"dname"`
-	ServiceID json.Number `json:"service_id,omitempty"`
-}
+// type RemoveRecordResponse struct {
+// 	GeneralResponseErrorInfoAndResult
+// 	DName     string      `json:"dname"`
+// 	ServiceID json.Number `json:"service_id,omitempty"`
+// }
 
 // Removes a record for zone. The total conversion between [libdns.Record] and [DNSRecord] is not
 // performed, just `Name` and `Type` fields are used in the request.
@@ -41,7 +40,7 @@ func (self *RegruClient) RemoveZoneRecord(
 	ctx context.Context,
 	zone Zone,
 	record libdns.Record,
-) (*RemoveResponse, error) {
+) (*SimpleDomainResponse, error) {
 	req := RemoveRecordRequest{
 		Domains: []GeneralZoneRequest{{
 			DName: zone,
@@ -56,5 +55,8 @@ func (self *RegruClient) RemoveZoneRecord(
 		SetContext(ctx).
 		SetResult(&respBody).
 		Post(getUrl(req))
-	return &respBody, err
+	if err != nil {
+		return nil, err
+	}
+	return searchZoneInAnswerDomain(respBody.Answer.Domains, zone)
 }

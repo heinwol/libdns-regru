@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
+	"slices"
 	"time"
 )
 
@@ -24,6 +26,16 @@ type APIResponseError struct {
 
 func (self *APIResponseError) Error() string {
 	return fmt.Sprintf("reg.ru request resulted in error: %#v", self.GeneralResponseErrorInfoAndResult)
+}
+
+type SimpleDomainResponse struct {
+	GeneralResponseErrorInfoAndResult
+	DName     string      `json:"dname"`
+	ServiceID json.Number `json:"service_id,omitempty"`
+}
+
+type DomainsAnswer struct {
+	Domains []SimpleDomainResponse `json:"domains"`
 }
 
 type GeneralResponseErrorInfoAndResult struct {
@@ -132,23 +144,23 @@ type UpdateSOARequest struct {
 
 /// Response
 
-type UpdateSOAResponse = APIResponse[UpdateSOADomainsAnswer]
+type UpdateSOAResponse = APIResponse[DomainsAnswer]
 
-type UpdateSOADomainsAnswer struct {
-	Domains []UpdateSOADomainResponse `json:"domains"`
-}
+// type UpdateSOADomainsAnswer struct {
+// 	Domains []UpdateSOADomainResponse `json:"domains"`
+// }
 
-type UpdateSOADomainResponse struct {
-	GeneralResponseErrorInfoAndResult
-	DName     string      `json:"dname"`
-	ServiceID json.Number `json:"service_id,omitempty"`
-}
+// type UpdateSOADomainResponse struct {
+// 	GeneralResponseErrorInfoAndResult
+// 	DName     string      `json:"dname"`
+// 	ServiceID json.Number `json:"service_id,omitempty"`
+// }
 
 func (self *RegruClient) UpdateSOA(
 	ctx context.Context,
 	zone Zone,
 	ttl time.Duration,
-) (*UpdateSOAResponse, error) {
+) (*SimpleDomainResponse, error) {
 	req := UpdateSOARequest{
 		Domains: []GeneralZoneRequest{{
 			DName: zone,
@@ -168,5 +180,33 @@ func (self *RegruClient) UpdateSOA(
 	if err != nil {
 		return nil, err
 	}
-	return &respBody, nil
+	return searchZoneInAnswerDomain(respBody.Answer.Domains, zone)
+}
+
+type withDName interface {
+	getDName() string
+}
+
+func (self SimpleDomainResponse) getDName() string {
+	return self.DName
+}
+
+func searchZoneInAnswerDomain[DomainResponseT withDName](domains []DomainResponseT, zone Zone) (*DomainResponseT, error) {
+	if len(domains) == 0 {
+		return nil, fmt.Errorf("no domains match zone `%s`", zone)
+	}
+	if len(domains) > 1 {
+		slog.Warn("zone matched several domains, searching for", "zone", zone, "in domains", domains)
+		zone_index := slices.IndexFunc(
+			domains,
+			func(r DomainResponseT) bool {
+				return r.getDName() == zone
+			},
+		)
+		if zone_index == -1 {
+			return nil, fmt.Errorf("could not find zone '%s' in response", zone)
+		}
+		return &domains[zone_index], nil
+	}
+	return &domains[0], nil
 }

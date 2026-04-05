@@ -76,11 +76,13 @@ func NewRegruClient(credentials Credentials) (*RegruClient, error) {
 			}
 
 			// TODO: just for debug purposes, unsafe for prod
-			b_fmt, err := PrettyJsonBytes(b)
-			if err != nil {
-				return err
+			if _, exists := os.LookupEnv("LOG_VERBOSE"); exists {
+				b_fmt, err := PrettyJsonBytes(b)
+				if err != nil {
+					return err
+				}
+				slog.Warn(string(b_fmt))
 			}
-			slog.Warn(string(b_fmt))
 
 			var api_response APIResponse[any]
 			if err := json.Unmarshal(b, &api_response); err != nil {

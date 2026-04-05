@@ -1,4 +1,13 @@
 {
+    "go.testFlags": [
+        "-v",
+    ],
+    "go.testEnvVars": {
+        "LOG_VERBOSE": "1"
+    },
+    "go.delveConfig": {
+        "showLog": true
+    },
     "cSpell.words": [
         "godoc",
         "godocs",
@@ -8,6 +17,7 @@
         "prio",
         "rectype",
         "Regru",
-        "resty"
+        "resty",
+        "servtype"
     ]
 }

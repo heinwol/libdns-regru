@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"slices"
+	"log/slog"
 
 	"github.com/libdns/libdns"
 )
@@ -54,7 +54,7 @@ func (self *RegruClient) UpdateZoneRecords(
 	ctx context.Context,
 	zone Zone,
 	records []libdns.Record,
-) (*UpdateResponse, error) {
+) (*UpdateZoneResponse, error) {
 	domain := UpdateZoneRequest{
 		DName: zone,
 	}
@@ -82,31 +82,26 @@ func (self *RegruClient) UpdateZoneRecords(
 	if err != nil {
 		return nil, err
 	}
-	return &respBody, nil
+	if len(respBody.Answer.Domains) == 0 {
+		return nil, fmt.Errorf("no domains match zone `%s`", zone)
+	}
+	if len(respBody.Answer.Domains) > 1 {
+		slog.Warn("zone matched several domains, taking the first one:", "Domains", respBody.Answer.Domains)
+	}
+	return &respBody.Answer.Domains[0], err
 }
 
 // Returns records that were successfully altered; if there was any failure, returns it as well
 func AnalyzeUpdateResponse(
-	resp *UpdateResponse,
+	resp *UpdateZoneResponse,
 	zone Zone,
 	records []libdns.Record,
 ) ([]libdns.Record, error) {
 	result := []libdns.Record{}
 	errors_encountered := []error{}
 
-	zone_index := slices.IndexFunc(
-		resp.Answer.Domains,
-		func(r UpdateZoneResponse) bool {
-			return r.DName == zone
-		},
-	)
-	if zone_index == -1 {
-		return result, fmt.Errorf("could not find zone '%s' in response: %+v", zone, resp)
-	}
-	updated := resp.Answer.Domains[zone_index]
-
 	for _, record := range records {
-		found, err := wasRecordSuccessfullyUpdated(updated, zone, record)
+		found, err := wasRecordSuccessfullyUpdated(*resp, zone, record)
 		if err != nil {
 			errors_encountered = append(errors_encountered, err)
 		} else if found {
