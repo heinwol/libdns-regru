@@ -140,8 +140,8 @@ type UpdateSOADomainsAnswer struct {
 
 type UpdateSOADomainResponse struct {
 	GeneralResponseErrorInfoAndResult
-	DName     string `json:"dname"`
-	ServiceID string `json:"service_id,omitempty"`
+	DName     string      `json:"dname"`
+	ServiceID json.Number `json:"service_id,omitempty"`
 }
 
 func (self *RegruClient) UpdateSOA(

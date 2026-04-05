@@ -1,2 +1,3 @@
 .env
 /data/current_records.json
+__debug*

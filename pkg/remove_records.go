@@ -2,6 +2,7 @@ package libdns_regru
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/libdns/libdns"
 )
@@ -30,8 +31,8 @@ type RemoveRecordAnswer struct {
 
 type RemoveRecordResponse struct {
 	GeneralResponseErrorInfoAndResult
-	DName     string `json:"dname"`
-	ServiceID string `json:"service_id,omitempty"`
+	DName     string      `json:"dname"`
+	ServiceID json.Number `json:"service_id,omitempty"`
 }
 
 // Removes a record for zone. The total conversion between [libdns.Record] and [DNSRecord] is not
@@ -40,7 +41,7 @@ func (self *RegruClient) RemoveZoneRecord(
 	ctx context.Context,
 	zone Zone,
 	record libdns.Record,
-) (*RemoveRecordResponse, error) {
+) (*RemoveResponse, error) {
 	req := RemoveRecordRequest{
 		Domains: []GeneralZoneRequest{{
 			DName: zone,
@@ -49,7 +50,7 @@ func (self *RegruClient) RemoveZoneRecord(
 		RecordType: record.RR().Type,
 		// we don't use other fields anyway
 	}
-	var respBody RemoveRecordResponse
+	var respBody RemoveResponse
 	_, err := self.Client.R().
 		SetBody(req).
 		SetContext(ctx).

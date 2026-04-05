@@ -2,6 +2,7 @@ package libdns_regru
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
@@ -40,7 +41,7 @@ type UpdateDomainsAnswer struct {
 type UpdateZoneResponse struct {
 	GeneralResponseErrorInfoAndResult
 	DName      string                 `json:"dname"`
-	ServiceID  string                 `json:"service_id,omitempty"`
+	ServiceID  json.Number            `json:"service_id,omitempty"`
 	ActionList []UpdateActionResponse `json:"action_list"`
 }
 

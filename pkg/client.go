@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"os"
@@ -73,6 +74,13 @@ func NewRegruClient(credentials Credentials) (*RegruClient, error) {
 			if len(b) == 0 {
 				return nil
 			}
+
+			// TODO: just for debug purposes, unsafe for prod
+			b_fmt, err := PrettyJsonBytes(b)
+			if err != nil {
+				return err
+			}
+			slog.Warn(string(b_fmt))
 
 			var api_response APIResponse[any]
 			if err := json.Unmarshal(b, &api_response); err != nil {

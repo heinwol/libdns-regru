@@ -2,6 +2,7 @@ package libdns_regru
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/libdns/libdns"
@@ -93,8 +94,8 @@ type AddDomainsAnswer struct {
 
 type AddDomainResponse struct {
 	GeneralResponseErrorInfoAndResult
-	DName     string `json:"dname"`
-	ServiceID string `json:"service_id,omitempty"`
+	DName     string      `json:"dname"`
+	ServiceID json.Number `json:"service_id,omitempty"`
 }
 
 func (self *RegruClient) AddZoneRecord(

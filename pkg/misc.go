@@ -14,6 +14,16 @@ func MustJSON(v any) string {
 	return string(b)
 }
 
+func PrettyJsonBytes(b []byte) (string, error) {
+	var obj any
+	err := json.Unmarshal(b, &obj)
+	prettyJSON, err := json.MarshalIndent(obj, "", "    ")
+	if err != nil {
+		return "", nil
+	}
+	return string(prettyJSON), nil
+}
+
 func PrettyPrint(v ...any) {
 	for _, v := range v {
 		b, err := json.MarshalIndent(v, "", "  ")
