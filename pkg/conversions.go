@@ -106,12 +106,15 @@ func intoRegruTTLWithRoundingToSeconds(ttl time.Duration) string {
 }
 
 func fromRegruTTL(s string) (time.Duration, error) {
+	n, err := strconv.Atoi(s)
+	if err == nil {
+		return time.Duration(n) * time.Second, nil
+	}
 
-	n, err := strconv.Atoi(s[:len(s)-1])
+	n, err = strconv.Atoi(s[:len(s)-1])
 	if err != nil {
 		return 0, fmt.Errorf("bad ttl number: %w", err)
 	}
-
 	switch s[len(s)-1] {
 	case 'h':
 		return time.Duration(n) * time.Hour, nil
