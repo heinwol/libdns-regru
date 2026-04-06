@@ -29,6 +29,7 @@ const testZone string = "test.ru"
 // skips the test if REGRU_INTEGRATION is not set.
 func integrationClient(t *testing.T) *RegruClient {
 	t.Helper()
+	// TODO: revert this when done
 	// if os.Getenv("REGRU_INTEGRATION") == "" {
 	// 	t.Skip("set REGRU_INTEGRATION=1 to run integration tests")
 	// }
@@ -49,13 +50,18 @@ func TestIntegration_GetZoneRecords(t *testing.T) {
 	defer cancel()
 
 	resp, err := client.GetZoneRecords(ctx, testZone)
-	if assert.NoError(t, err) {
+	if assert.NoError(t, err) && assert.Equal(t, resp.Result, "success") {
 		assert.Equal(t, resp.DName, testZone)
-		assert.Equal(t, resp.Result, "success")
-		assert.NotEmpty(t, resp.SOA.TTL)
-	}
-	for _, r := range resp.Records {
-		t.Logf("  %s %s %s", r.Rectype, r.Subname, r.Content)
+		assert.Equal(t, resp.DName, testZone)
+
+		if assert.NotEmpty(t, resp) {
+			_, err = fromRegruTTL(resp.SOA.TTL)
+			assert.Nil(t, err)
+			_, err = fromRegruTTL(resp.SOA.MinimumTTL)
+			assert.Nil(t, err)
+			assert.NotEmpty(t, resp.Records[0].Subname)
+		}
+
 	}
 }
 
@@ -65,19 +71,20 @@ func TestIntegration_GetZoneRecords_IntoLibdns(t *testing.T) {
 	defer cancel()
 
 	resp, err := client.GetZoneRecords(ctx, testZone)
-	if err != nil {
-		t.Fatalf("GetZoneRecords: %v", err)
-	}
-	records, err := resp.IntoLibdnsRecords()
-	if err != nil {
-		t.Fatalf("IntoLibdnsRecords: %v", err)
-	}
-	if len(records) == 0 {
-		t.Log("warning: no records returned by test zone (unexpected but not fatal)")
-	}
-	for _, r := range records {
-		rr := r.RR()
-		t.Logf("  type=%s name=%s ttl=%v", rr.Type, rr.Name, rr.TTL)
+	if assert.NoError(t, err) {
+		records, err := resp.IntoLibdnsRecords()
+		if assert.NoError(t, err) {
+			if len(records) == 0 {
+				t.Log("warning: no records returned by test zone (unexpected but not fatal)")
+			} else {
+				for _, r := range records {
+					rr := r.RR()
+					assert.NotEmpty(t, rr.Type)
+					assert.NotEmpty(t, rr.Name)
+					assert.NotEmpty(t, rr.TTL)
+				}
+			}
+		}
 	}
 }
 
@@ -92,9 +99,9 @@ func TestIntegration_AddTXTRecord(t *testing.T) {
 
 	rec := libdnsTXT("_acme-challenge-integration-test", "integration-test-token")
 	resp, err := client.AddZoneRecord(ctx, testZone, rec)
-	if assert.NoError(t, err) {
+	if assert.NoError(t, err) && assert.Equal(t, resp.Result, "success") {
 		assert.Equal(t, resp.DName, testZone)
-		assert.Equal(t, resp.Result, "success")
+		assert.Equal(t, resp.DName, testZone)
 	}
 }
 
@@ -109,9 +116,9 @@ func TestIntegration_AddARecord(t *testing.T) {
 
 	rec := libdnsAddress4("integration-test-host", "1.2.3.4")
 	resp, err := client.AddZoneRecord(ctx, testZone, rec)
-	if assert.NoError(t, err) {
+	if assert.NoError(t, err) && assert.Equal(t, resp.Result, "success") {
 		assert.Equal(t, resp.DName, testZone)
-		assert.Equal(t, resp.Result, "success")
+		assert.Equal(t, resp.DName, testZone)
 	}
 }
 
@@ -124,11 +131,10 @@ func TestIntegration_RemoveTXTRecord(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	rec := libdnsTXT("_acme-challenge-integration-test", "integration-test-token")
+	rec := libdns.TXT{Name: "_acme-challenge-integration-test"}
 	resp, err := client.RemoveZoneRecord(ctx, testZone, rec)
-	if assert.NoError(t, err) {
+	if assert.NoError(t, err) && assert.Equal(t, resp.Result, "success") {
 		assert.Equal(t, resp.DName, testZone)
-		assert.Equal(t, resp.Result, "success")
 	}
 }
 
@@ -148,16 +154,10 @@ func TestIntegration_UpdateSOA(t *testing.T) {
 	defer cancel()
 
 	resp, err := client.UpdateSOA(ctx, testZone, time.Hour)
-	if err != nil {
-		// Known issue: test API returns service_id as a number, source expects string.
-		// TODO: fix UpdateSOADomainResponse.ServiceID type (string → json.Number).
-		t.Logf("KNOWN BUG - UpdateSOA unmarshal error (service_id type mismatch): %v", err)
-		return
+	if assert.NoError(t, err) && assert.Equal(t, resp.Result, "success") {
+		assert.Equal(t, resp.DName, testZone)
+		assert.Equal(t, resp.DName, testZone)
 	}
-	if resp.Result != "success" {
-		t.Errorf("UpdateSOA result = %q, want success", resp.Result)
-	}
-	t.Logf("update_soa: result=%s", resp.Result)
 }
 
 // ---------------------------------------------------------------------------
@@ -172,19 +172,18 @@ func TestIntegration_UpdateZoneRecords(t *testing.T) {
 
 	records := []libdns.Record{
 		libdnsTXT("_integration-update", "value1"),
+		libdns.MX{Name: "main", TTL: time.Hour, Target: "my-mail@test.com"},
 	}
 	resp, err := client.UpdateZoneRecords(ctx, testZone, records)
-	if err != nil {
-		// Known issue: test API returns service_id as a number, source expects string.
-		// TODO: fix UpdateZoneResponse.ServiceID type (string → json.Number).
-		t.Logf("KNOWN BUG - UpdateZoneRecords unmarshal error (service_id type mismatch): %v", err)
-		return
-	}
-	if resp.Result != "success" {
-		t.Errorf("result = %q, want success", resp.Result)
-	}
-	t.Logf("update_records: result=%s", resp.Result)
+	if assert.NoError(t, err) && assert.Equal(t, resp.Result, "success") {
+		assert.Equal(t, resp.DName, testZone)
+		updated, err := AnalyzeUpdateResponse(resp, testZone, records)
+		if assert.NoError(t, err) &&
+			assert.Len(t, updated, 2) {
+			assert.Equal(t, updated[0].RR().Type, "TXT")
+			assert.Equal(t, updated[1].RR().Type, "MX")
+		}
 
-	updated, analyzeErr := AnalyzeUpdateResponse(resp, testZone, records)
-	t.Logf("updated=%d analyzeErr=%v", len(updated), analyzeErr)
+	}
+
 }
