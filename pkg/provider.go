@@ -5,7 +5,6 @@ package libdns_regru
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/libdns/libdns"
@@ -67,10 +66,7 @@ func (p *Provider) SetRecords(ctx context.Context, zone string, records []libdns
 	if err != nil {
 		return nil, err
 	}
-	AnalyzeUpdateResponse(resp, zone, records)
-
-	// Make sure to return RR-type-specific structs, not libdns.RR structs.
-	return nil, fmt.Errorf("TODO: not implemented")
+	return AnalyzeUpdateResponse(resp, zone, records)
 }
 
 // DeleteRecords deletes the specified records from the zone. It returns the records that were deleted.
