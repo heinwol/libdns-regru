@@ -183,6 +183,8 @@ func (self *RegruClient) UpdateSOA(
 	return searchZoneInAnswerDomain(respBody.Answer.Domains, zone)
 }
 
+// private
+
 type withDName interface {
 	getDName() string
 }

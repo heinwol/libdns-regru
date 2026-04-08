@@ -18,12 +18,8 @@ func TestFromRegruTTL(t *testing.T) {
 		want    time.Duration
 		wantErr bool
 	}{
-		// numeric seconds (no suffix letter → falls through to the Atoi branch)
 		{"3600", 3600 * time.Second, false},
-		// NOTE: "0" triggers a known edge case — s[:len(s)-1] strips the last
-		// digit ('0'), leaving "", which Atoi rejects before the fallthrough branch.
-		// This test documents the current (arguably buggy) behavior.
-		{"0", 0, true},
+		{"0", 0, false},
 		// hour suffix
 		{"1h", time.Hour, false},
 		{"12h", 12 * time.Hour, false},
@@ -40,7 +36,6 @@ func TestFromRegruTTL(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.input, func(t *testing.T) {
 			got, err := fromRegruTTL(tc.input)
 			if tc.wantErr {

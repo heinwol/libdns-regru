@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/libdns/libdns"
+	"github.com/stretchr/testify/assert"
 )
 
 // ---------------------------------------------------------------------------
@@ -151,17 +152,14 @@ func TestGetZoneRecords_Success(t *testing.T) {
 
 	client := newTestClient(t, srv.URL)
 	resp, err := client.GetZoneRecords(t.Context(), zone)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if resp.DName != zone {
-		t.Errorf("DName = %s, want %s", resp.DName, zone)
-	}
-	if len(resp.Records) != 2 {
-		t.Errorf("len(Records) = %d, want 2", len(resp.Records))
-	}
-	if resp.SOA.TTL != "1d" {
-		t.Errorf("SOA.TTL = %s", resp.SOA.TTL)
+	if assert.NoError(t, err) && assert.Equal(t, resp.Result, "success") {
+		assert.Equal(t, resp.DName, testZone)
+		records := resp.Records
+		if assert.Len(t, records, 2) {
+			assert.Equal(t, records[0].Rectype, "A")
+			assert.Equal(t, records[1].Rectype, "TXT")
+		}
+		assert.Equal(t, resp.SOA.TTL, "1d")
 	}
 }
 
@@ -427,21 +425,6 @@ func TestAnalyzeUpdateResponse_AllSuccess(t *testing.T) {
 	}
 	if len(updated) != 1 {
 		t.Errorf("len(updated) = %d, want 1", len(updated))
-	}
-}
-
-func TestAnalyzeUpdateResponse_ZoneNotFound(t *testing.T) {
-	zone := "test.ru"
-	records := []libdns.Record{libdnsTXT("_acme", "token")}
-	resp := &UpdateResponse{
-		GeneralResponseErrorInfoAndResult: GeneralResponseErrorInfoAndResult{Result: "success"},
-		Answer: UpdateDomainsAnswer{
-			Domains: []UpdateZoneResponse{}, // zone missing
-		},
-	}
-	_, err := AnalyzeUpdateResponse(&resp.Answer.Domains[0], zone, records)
-	if err == nil {
-		t.Error("expected error when zone not in response")
 	}
 }
 

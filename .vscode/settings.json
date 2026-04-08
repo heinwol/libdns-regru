@@ -3,7 +3,7 @@
         "-v",
     ],
     "go.testEnvVars": {
-        "LOG_VERBOSE": "1"
+        // "LOG_VERBOSE": "1"
     },
     "go.delveConfig": {
         "showLog": true
