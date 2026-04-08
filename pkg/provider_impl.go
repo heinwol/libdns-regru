@@ -48,7 +48,7 @@ func (p *Provider) updateSOA(ctx context.Context, zone Zone, ttl time.Duration) 
 
 	cached_soa, err := p.getSOA(ctx, zone)
 
-	_, err = p.client.Inner.UpdateSOA(ctx, zone, ttl)
+	_, err = p.client.Inner.DoUpdateSOARequest(ctx, zone, ttl)
 	if err != nil {
 		return err
 	}

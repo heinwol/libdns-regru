@@ -123,7 +123,6 @@ func wasRecordSuccessfullyUpdated(
 	zone Zone,
 	record libdns.Record,
 ) (bool, error) {
-
 	record_converted, err := addRequestFromLibdns(zone, record)
 	if err != nil {
 		return false, err

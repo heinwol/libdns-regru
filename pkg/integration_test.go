@@ -153,7 +153,7 @@ func TestIntegration_UpdateSOA(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	resp, err := client.UpdateSOA(ctx, testZone, time.Hour)
+	resp, err := client.DoUpdateSOARequest(ctx, testZone, time.Hour)
 	if assert.NoError(t, err) && assert.Equal(t, resp.Result, "success") {
 		assert.Equal(t, resp.DName, testZone)
 		assert.Equal(t, resp.DName, testZone)

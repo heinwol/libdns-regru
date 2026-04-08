@@ -323,7 +323,7 @@ func TestUpdateSOA(t *testing.T) {
 	defer srv.Close()
 
 	client := newTestClient(t, srv.URL)
-	_, err := client.UpdateSOA(t.Context(), "test.ru", time.Hour)
+	_, err := client.DoUpdateSOARequest(t.Context(), "test.ru", time.Hour)
 	if err != nil {
 		t.Fatal(err)
 	}
