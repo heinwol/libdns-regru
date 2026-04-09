@@ -106,6 +106,10 @@ func intoRegruTTLWithRoundingToSeconds(ttl time.Duration) string {
 }
 
 func fromRegruTTL(s string) (time.Duration, error) {
+	if s == "" {
+		return 0, fmt.Errorf("empty TTL string")
+	}
+
 	n, err := strconv.Atoi(s)
 	if err == nil {
 		return time.Duration(n) * time.Second, nil
@@ -116,21 +120,15 @@ func fromRegruTTL(s string) (time.Duration, error) {
 		return 0, fmt.Errorf("bad ttl number: %w", err)
 	}
 	switch s[len(s)-1] {
+	case 'm':
+		return time.Duration(n) * time.Minute, nil
 	case 'h':
 		return time.Duration(n) * time.Hour, nil
 	case 'd':
 		return time.Duration(n) * 24 * time.Hour, nil
 	case 'w':
 		return time.Duration(n) * 7 * 24 * time.Hour, nil
-	case 'm':
-		slog.Warn("month TTL approximated as 30 days:", "ttl", s)
-		return time.Duration(n) * 30 * 24 * time.Hour, nil
 	default:
-		secs, err := strconv.Atoi(s)
-		if err != nil {
-			return 0, fmt.Errorf("unsupported ttl unit in %q", s)
-		}
-		return time.Duration(secs) * time.Second, nil
-
+		return 0, fmt.Errorf("unsupported ttl unit in %q", s)
 	}
 }

@@ -2,11 +2,28 @@ package libdns_regru
 
 import (
 	"context"
+	"fmt"
 	"time"
 )
 
+func NewProviderForTests(ctx context.Context) (*Provider, error) {
+	client, err := NewRegruClientForTests(ctx)
+	if err != nil {
+		return nil, err
+	}
+	result := Provider{
+		Password: client.Credentials.Password,
+		Username: client.Credentials.Username,
+	}
+	_, err = result.Client.Do(func() (*RegruClient, error) {
+		return client, nil
+	})
+	return &result, err
+
+}
+
 func (p *Provider) initClient(ctx context.Context) error {
-	_, err := p.client.Do(func() (*RegruClient, error) {
+	_, err := p.Client.Do(func() (*RegruClient, error) {
 		client, err := NewRegruClient(Credentials{
 			Username: p.Username,
 			Password: p.Password,
@@ -19,7 +36,7 @@ func (p *Provider) initClient(ctx context.Context) error {
 	return err
 }
 
-func (p *Provider) getSOA(ctx context.Context, zone Zone) (*SOA, error) {
+func (p *Provider) GetSOA(ctx context.Context, zone Zone) (*SOA, error) {
 	err := p.initClient(ctx)
 	if err != nil {
 		return nil, err
@@ -31,24 +48,32 @@ func (p *Provider) getSOA(ctx context.Context, zone Zone) (*SOA, error) {
 		return &soa_, nil
 	}
 
-	resp, err := p.client.Inner.GetZoneRecords(ctx, zone)
+	resp, err := p.Client.Inner.GetZoneRecords(ctx, zone)
 	if err != nil {
 		return nil, err
+	}
+
+	if resp.SOA.TTL == "" {
+		return &resp.SOA, fmt.Errorf("Server returned empty SOA")
 	}
 
 	p.soa_cache.Store(zone, resp.SOA)
 	return &resp.SOA, nil
 }
 
-func (p *Provider) updateSOA(ctx context.Context, zone Zone, ttl time.Duration) error {
+func (p *Provider) storeSOA(zone Zone, soa SOA) {
+	p.soa_cache.Store(zone, soa)
+}
+
+func (p *Provider) updateTTLRemote(ctx context.Context, zone Zone, ttl time.Duration) error {
 	err := p.initClient(ctx)
 	if err != nil {
 		return err
 	}
 
-	cached_soa, err := p.getSOA(ctx, zone)
+	cached_soa, err := p.GetSOA(ctx, zone)
 
-	_, err = p.client.Inner.DoUpdateSOARequest(ctx, zone, ttl)
+	_, err = p.Client.Inner.DoUpdateSOARequest(ctx, zone, ttl)
 	if err != nil {
 		return err
 	}

@@ -1,6 +1,7 @@
 package libdns_regru
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -18,7 +19,7 @@ type RegruClient struct {
 	Credentials Credentials
 }
 
-func NewRegruClientForTests() (*RegruClient, error) {
+func NewRegruClientForTests(ctx context.Context) (*RegruClient, error) {
 	username, found := os.LookupEnv("REGRU_USERNAME")
 	if !found {
 		log.Fatal("username not found")
@@ -40,7 +41,7 @@ func NewRegruClientForTests() (*RegruClient, error) {
 	if err != nil {
 		return nil, err
 	}
-	client.Client.SetTransport(transport)
+	client.Client.SetTransport(transport).SetContext(ctx)
 	return client, nil
 }
 

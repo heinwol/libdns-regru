@@ -21,8 +21,8 @@ type Provider struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
 
-	client    onceCell[RegruClient]
-	soa_cache sync.Map // map[Zone]SOA
+	Client    onceCell[RegruClient] `json:"-"`
+	soa_cache sync.Map              // map[Zone]SOA
 }
 
 // GetRecords lists all the records in the zone.
@@ -32,11 +32,15 @@ func (p *Provider) GetRecords(ctx context.Context, zone string) ([]libdns.Record
 		return nil, err
 	}
 
-	resp, err := p.client.Inner.GetZoneRecords(ctx, zone)
+	resp, err := p.Client.Inner.GetZoneRecords(ctx, zone)
 	if err != nil {
 		return nil, err
 	}
+
+	p.storeSOA(zone, resp.SOA)
+
 	records_conv, err := resp.IntoLibdnsRecords()
+
 	return records_conv, err
 }
 
@@ -49,7 +53,7 @@ func (p *Provider) AppendRecords(ctx context.Context, zone string, records []lib
 		return nil, err
 	}
 
-	currentSOA, err := p.getSOA(ctx, zone)
+	currentSOA, err := p.GetSOA(ctx, zone)
 	if err != nil {
 		return nil, err
 	}
@@ -58,14 +62,14 @@ func (p *Provider) AppendRecords(ctx context.Context, zone string, records []lib
 		return nil, err
 	}
 
-	recordsWithAlteredTTL, changed, err1 := changeTTLInLibdnsRecords(records, currentTTL, currentTTL)
+	recordsWithCurrentTTL, changed, err1 := changeTTLInLibdnsRecords(records, currentTTL, currentTTL)
 	if changed {
 		slog.Warn("attempt to change TTL while appending records; that's unsupported")
 	}
 	appendedRecords := []libdns.Record{}
 
-	for _, record := range recordsWithAlteredTTL {
-		_, err := p.client.Inner.AddZoneRecord(ctx, zone, record)
+	for _, record := range recordsWithCurrentTTL {
+		_, err := p.Client.Inner.AddZoneRecord(ctx, zone, record)
 		if err != nil {
 			return appendedRecords, errors.Join(err1, err)
 		}
@@ -82,7 +86,7 @@ func (p *Provider) SetRecords(ctx context.Context, zone string, records []libdns
 		return nil, err
 	}
 
-	currentSOA, err := p.getSOA(ctx, zone)
+	currentSOA, err := p.GetSOA(ctx, zone)
 	if err != nil {
 		return nil, err
 	}
@@ -101,12 +105,12 @@ func (p *Provider) SetRecords(ctx context.Context, zone string, records []libdns
 	}
 	var errSOAUpdate error
 	if changed {
-		errSOAUpdate = p.updateSOA(ctx, zone, changeTTL)
+		errSOAUpdate = p.updateTTLRemote(ctx, zone, changeTTL)
 	}
 
-	resp, err := p.client.Inner.UpdateZoneRecords(ctx, zone, recordsWithAlteredTTL)
+	resp, err := p.Client.Inner.UpdateZoneRecords(ctx, zone, recordsWithAlteredTTL)
 	if err != nil {
-		return nil, err
+		return nil, errors.Join(err, errTTLChangeInRecords, errSOAUpdate)
 	}
 	resultRecords, err := AnalyzeUpdateResponse(resp, zone, recordsWithAlteredTTL)
 	return resultRecords, errors.Join(err, errTTLChangeInRecords, errSOAUpdate)
@@ -123,7 +127,7 @@ func (p *Provider) DeleteRecords(ctx context.Context, zone string, records []lib
 
 	deleted_records := []libdns.Record{}
 	for _, record := range records {
-		_, err := p.client.Inner.RemoveZoneRecord(ctx, zone, record)
+		_, err := p.Client.Inner.RemoveZoneRecord(ctx, zone, record)
 		if err != nil {
 			return deleted_records, err
 		}
