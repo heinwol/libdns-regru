@@ -105,6 +105,9 @@ func withTTL(rec libdns.Record, ttl time.Duration) (libdns.Record, error) {
 	case libdns.CAA:
 		r.TTL = ttl
 		return r, nil
+	case libdns.RR:
+		r.TTL = ttl
+		return r, nil
 	default:
 		return nil, fmt.Errorf("unsupported record type %T", rec)
 	}

@@ -46,6 +46,8 @@ func fromLibdnsRecordWithTTL(record libdns.Record) (*DNSRecord, string, error) {
 		result.Content = rec_t.Target
 	case libdns.TXT:
 		result.Content = rec_t.Text
+	case libdns.RR:
+		result.Content = rec_t.Data
 	default:
 		return nil, ttl, fmt.Errorf("unsupported record type: %s", result.Rectype)
 	}
@@ -91,7 +93,16 @@ func (self DNSRecord) intoLibdnsRecordWithTTL(ttl time.Duration) (libdns.Record,
 			Text: self.Content,
 		}, nil
 	default:
-		return nil, fmt.Errorf("unsupported record type: %s", self.Rectype)
+		slog.Warn(
+			"record type unspecified, returning bare libdns.RR struct. You **should not** return these from Provider.* methods",
+			"type",
+			self.Rectype,
+		)
+		return libdns.RR{
+			Name: self.Subname,
+			TTL:  ttl,
+			Data: self.Content,
+		}, nil
 	}
 }
 
