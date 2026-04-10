@@ -31,6 +31,7 @@ func (p *Provider) GetRecords(ctx context.Context, zone string) ([]libdns.Record
 	if err != nil {
 		return nil, err
 	}
+	zone = normalizeZone(zone)
 
 	resp, err := p.Client.Inner.GetZoneRecords(ctx, zone)
 	if err != nil {
@@ -52,6 +53,7 @@ func (p *Provider) AppendRecords(ctx context.Context, zone string, records []lib
 	if err != nil {
 		return nil, err
 	}
+	zone = normalizeZone(zone)
 
 	currentSOA, err := p.GetSOA(ctx, zone)
 	if err != nil {
@@ -85,6 +87,7 @@ func (p *Provider) SetRecords(ctx context.Context, zone string, records []libdns
 	if err != nil {
 		return nil, err
 	}
+	zone = normalizeZone(zone)
 
 	currentSOA, err := p.GetSOA(ctx, zone)
 	if err != nil {
@@ -124,6 +127,7 @@ func (p *Provider) DeleteRecords(ctx context.Context, zone string, records []lib
 	if err != nil {
 		return nil, err
 	}
+	zone = normalizeZone(zone)
 
 	deleted_records := []libdns.Record{}
 	for _, record := range records {

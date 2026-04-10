@@ -3,6 +3,7 @@ package libdns_regru
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 )
 
@@ -12,6 +13,10 @@ func MustJSON(v any) string {
 		panic(err)
 	}
 	return string(b)
+}
+
+func normalizeZone(zone string) Zone {
+	return strings.TrimSuffix(zone, ".")
 }
 
 func PrettyJsonBytes(b []byte) (string, error) {

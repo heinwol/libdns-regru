@@ -28,7 +28,7 @@ func (p *Provider) initClient(ctx context.Context) error {
 			Username: p.Username,
 			Password: p.Password,
 		})
-		if err != nil {
+		if err == nil {
 			client.Client.SetContext(ctx)
 		}
 		return client, err
