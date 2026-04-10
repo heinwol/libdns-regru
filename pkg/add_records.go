@@ -3,6 +3,7 @@ package libdns_regru
 import (
 	"context"
 	"fmt"
+	"net/netip"
 
 	"github.com/libdns/libdns"
 )
@@ -172,6 +173,40 @@ func addRequestFromLibdns(
 		specific_request = AddTXTRequest{
 			GeneralAddDomainRequest: basic_req,
 			Text:                    rec_t.Text,
+		}
+
+	// sometimes the caller passes pure RR struct and it's valid; therefore we should handle it
+	// whatsoever
+	case libdns.RR:
+		switch rec_t.Type {
+		case "TXT":
+			specific_request = AddTXTRequest{
+				GeneralAddDomainRequest: basic_req,
+				Text:                    rec_t.Data,
+			}
+		case "A", "AAAA":
+			addr, err := netip.ParseAddr(rec_t.Data)
+			if err != nil {
+				return nil, fmt.Errorf("could not parse IP from RR data %q: %w", rec_t.Data, err)
+			}
+			if addr.Is4() {
+				specific_request = AddAliasRequest{
+					GeneralAddDomainRequest: basic_req,
+					IPAddr:                  rec_t.Data,
+				}
+			} else {
+				specific_request = AddAAAARequest{
+					GeneralAddDomainRequest: basic_req,
+					IPAddr:                  rec_t.Data,
+				}
+			}
+		case "CNAME":
+			specific_request = AddCNAMERequest{
+				GeneralAddDomainRequest: basic_req,
+				Canonical:               rec_t.Data,
+			}
+		default:
+			return nil, fmt.Errorf("unsupported RR type in libdns.RR: %s", rec_t.Type)
 		}
 	default:
 		return nil, fmt.Errorf("unsupported record type: %s", rec_t.RR().Type)
