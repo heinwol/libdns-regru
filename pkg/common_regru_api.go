@@ -115,7 +115,9 @@ func (r DNSRecord) MarshalJSON() ([]byte, error) {
 		Priority uint16 `json:"priority,omitempty"`
 	}
 	aux.alias = alias(r)
-	aux.Priority = *r.Priority
+	if r.Priority != nil {
+		aux.Priority = *r.Priority
+	}
 	return json.Marshal(aux)
 }
 

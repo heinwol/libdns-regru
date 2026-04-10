@@ -7,6 +7,7 @@ import (
 	"cmp"
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"slices"
 	"sync"
@@ -102,10 +103,13 @@ func (p *Provider) SetRecords(ctx context.Context, zone string, records []libdns
 		return cmp.Compare(r1.RR().TTL, r2.RR().TTL)
 	}).RR().TTL
 	recordsWithAlteredTTL, changed, errTTLChangeInRecords := changeTTLInLibdnsRecords(records, currentTTL, changeTTL)
-
-	if !changed && errTTLChangeInRecords == nil {
-		recordsWithAlteredTTL = records
+	if errTTLChangeInRecords != nil {
+		return nil, fmt.Errorf(
+			"could not set ttl in all records to current one; no actual requests were made: %w",
+			errTTLChangeInRecords,
+		)
 	}
+
 	var errSOAUpdate error
 	if changed {
 		errSOAUpdate = p.updateTTLRemote(ctx, zone, changeTTL)

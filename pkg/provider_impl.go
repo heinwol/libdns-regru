@@ -3,6 +3,7 @@ package libdns_regru
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 )
 
@@ -71,14 +72,21 @@ func (p *Provider) updateTTLRemote(ctx context.Context, zone Zone, ttl time.Dura
 		return err
 	}
 
+	var minTTL string
 	cached_soa, err := p.GetSOA(ctx, zone)
+	if err != nil {
+		slog.Warn("could not get current SOA, requesting update either way", "err", err)
+		minTTL = ""
+	} else {
+		minTTL = cached_soa.MinimumTTL
+	}
 
 	_, err = p.Client.Inner.DoUpdateSOARequest(ctx, zone, ttl)
 	if err != nil {
 		return err
 	}
 	p.soa_cache.Store(zone, SOA{
-		MinimumTTL: cached_soa.MinimumTTL,
+		MinimumTTL: minTTL,
 		TTL:        intoRegruTTLWithRoundingToSeconds(ttl),
 	})
 	return nil

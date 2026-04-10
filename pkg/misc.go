@@ -19,12 +19,14 @@ func normalizeZone(zone string) Zone {
 	return strings.TrimSuffix(zone, ".")
 }
 
-func PrettyJsonBytes(b []byte) (string, error) {
+func prettyJsonBytes(b []byte) (string, error) {
 	var obj any
-	err := json.Unmarshal(b, &obj)
+	if err := json.Unmarshal(b, &obj); err != nil {
+		return "", err
+	}
 	prettyJSON, err := json.MarshalIndent(obj, "", "    ")
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 	return string(prettyJSON), nil
 }

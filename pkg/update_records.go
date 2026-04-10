@@ -30,6 +30,23 @@ type UpdateAction struct {
 	requestWithName
 }
 
+// We need this to flatten the struct
+func (a UpdateAction) MarshalJSON() ([]byte, error) {
+	// marshal the inner request first
+	inner, err := json.Marshal(a.requestWithName)
+	if err != nil {
+		return nil, err
+	}
+
+	// merge action name into it
+	var m map[string]any
+	if err := json.Unmarshal(inner, &m); err != nil {
+		return nil, err
+	}
+	m["action"] = a.ActionName
+	return json.Marshal(m)
+}
+
 // Responses:
 
 type UpdateResponse = APIResponse[UpdateDomainsAnswer]
@@ -97,6 +114,58 @@ func AnalyzeUpdateResponse(
 	zone Zone,
 	records []libdns.Record,
 ) ([]libdns.Record, error) {
+	// first we try to match records 1:1 to action list, but there's no guarantee from the server
+	// it would work
+	if len(resp.ActionList) == len(records) {
+		result := []libdns.Record{}
+		errors_encountered := []error{}
+		for i := range len(records) {
+			record_converted, err := addRequestFromLibdns(zone, records[i])
+			if err != nil {
+				errors_encountered = append(errors_encountered, err)
+				continue
+			}
+			if resp.ActionList[i].ActionName == record_converted.getCommandName() {
+				// here we just assume the corresponding action is the same as in record
+				if x := resp.ActionList[i].intoError(); x != nil {
+					errors_encountered = append(
+						errors_encountered,
+						fmt.Errorf("record %+v was not found in answer", records[i]),
+					)
+				} else {
+					result = append(result, records[i])
+				}
+			} else {
+				// here we allow some false positives, but it's our best bet
+				found, err := wasRecordSuccessfullyUpdated(*resp, zone, records[i])
+				if err != nil {
+					errors_encountered = append(errors_encountered, err)
+					continue
+				}
+				if found {
+					result = append(result, records[i])
+				} else {
+					errors_encountered = append(
+						errors_encountered,
+						fmt.Errorf("record %+v was not found in answer", records[i]),
+					)
+				}
+			}
+		}
+		return result, errors.Join(errors_encountered...)
+	} else {
+		return analyzeUpdateResponseFallback(resp, zone, records)
+	}
+}
+
+func analyzeUpdateResponseFallback(
+	resp *UpdateZoneResponse,
+	zone Zone,
+	records []libdns.Record,
+) ([]libdns.Record, error) {
+	slog.Warn(
+		"resorting to fallback when trying to decide what records were updated, expect some false positives",
+	)
 	result := []libdns.Record{}
 	errors_encountered := []error{}
 
@@ -117,7 +186,10 @@ func AnalyzeUpdateResponse(
 }
 
 // Returns `true` if corresponding record was found in answer, `false` if not found and an error
-// if the record is unsupported or, finally, the request itself resulted in an error
+// if the record is unsupported or, finally, the request itself resulted in an error.
+//
+// Warning: It is a fallback measure, as it would return incorrect results if there were several
+// requests of the same type (all false-positives)
 func wasRecordSuccessfullyUpdated(
 	resp UpdateZoneResponse,
 	zone Zone,
