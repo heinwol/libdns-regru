@@ -120,6 +120,8 @@ func fromRegruTTL(s string) (time.Duration, error) {
 		return 0, fmt.Errorf("bad ttl number: %w", err)
 	}
 	switch s[len(s)-1] {
+	case 's':
+		return time.Duration(n) * time.Second, nil
 	case 'm':
 		return time.Duration(n) * time.Minute, nil
 	case 'h':

@@ -20,6 +20,9 @@ func TestFromRegruTTL(t *testing.T) {
 	}{
 		{"3600", 3600 * time.Second, false},
 		{"0", 0, false},
+		{"5s", 5 * time.Second, false},
+		// minute suffix
+		{"1m", time.Minute, false},
 		// hour suffix
 		{"1h", time.Hour, false},
 		{"12h", 12 * time.Hour, false},
@@ -28,8 +31,6 @@ func TestFromRegruTTL(t *testing.T) {
 		{"7d", 7 * 24 * time.Hour, false},
 		// week suffix
 		{"2w", 2 * 7 * 24 * time.Hour, false},
-		// month suffix (approximated)
-		{"1m", 30 * 24 * time.Hour, false},
 		// bad inputs
 		{"xh", 0, true},  // non-numeric number part
 		{"abc", 0, true}, // fully non-numeric (falls through, Atoi fails)
