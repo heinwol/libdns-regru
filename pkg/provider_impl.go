@@ -25,6 +25,12 @@ func NewProviderForTests(ctx context.Context) (*Provider, error) {
 
 func (p *Provider) initClient(ctx context.Context) error {
 	_, err := p.Client.Do(func() (*RegruClient, error) {
+		if p.Username == "" {
+			return nil, fmt.Errorf("regru: username is required")
+		}
+		if p.Password == "" {
+			return nil, fmt.Errorf("regru: password is required")
+		}
 		client, err := NewRegruClient(Credentials{
 			Username: p.Username,
 			Password: p.Password,
